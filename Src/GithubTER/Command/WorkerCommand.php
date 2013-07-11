@@ -122,18 +122,14 @@ class WorkerCommand extends BaseCommand {
 		$mapper->run($extensionList);
 		$mappedResult = $mapper->getMappedResult();
 
-		$organizationRepositories = $this->github->api('organization')->repositories('typo3-ter');
-		foreach ($organizationRepositories as $organizationRepository) {
-			$this->existingRepositories[$organizationRepository['name']] = $organizationRepository['ssh_url'];
-		}
-
 		foreach ($mappedResult as $extension) {
 			/** @var $extension \GithubTER\Domain\Model\Extension */
 
 			$existingTags = array();
 			try {
 				$tags = $this->github->api('git')->tags()->all('typo3-ter', $extension->getKey());
-
+				$repository = $this->github->api('repository')->show('typo3-ter', $extension->getKey());
+				$this->existingRepositories[$repository['name']] = $repository['ssh_url'];
 				foreach ($tags as $tag) {
 					$existingTags[] = trim($tag['ref'], 'refs/tags/');
 				}
@@ -191,7 +187,7 @@ class WorkerCommand extends BaseCommand {
 			$this->output->writeln('Creating directory ' . $extensionDir);
 			mkdir($extensionDir, 0777, TRUE);
 
-			$this->output->writeln('Initializing GIT-Repository');
+			$this->output->writeln('Initializing GIT-Repository with origin: ' . $extension->getRepositoryPath());
 			exec(
 				'cd ' . escapeshellarg($extensionDir)
 					. ' && git init'
