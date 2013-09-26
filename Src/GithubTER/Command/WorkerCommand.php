@@ -61,7 +61,7 @@ class WorkerCommand extends BaseCommand {
 	/**
 	 * @var array
 	 */
-	protected $existingRepositories;
+	protected $existingRepositories = array();
 
 	/**
 	 * Connects to the beanstalk server
@@ -78,10 +78,10 @@ class WorkerCommand extends BaseCommand {
 		$this->t3xExtractor = new Service\T3xExtractor();
 		$this->github = new \Github\Client();
 		$this->github->authenticate(
-				$this->configurationManager->get('Services.Github.AuthToken'),
-				'',
-				\Github\Client::AUTH_HTTP_TOKEN
-			);
+			$this->configurationManager->get('Services.Github.AuthToken'),
+			'',
+			\Github\Client::AUTH_HTTP_TOKEN
+		);
 	}
 
 	/**
@@ -127,34 +127,51 @@ class WorkerCommand extends BaseCommand {
 
 			$existingTags = array();
 			try {
-				$tags = $this->github->api('git')->tags()->all('typo3-ter', $extension->getKey());
 				$repository = $this->github->api('repository')->show('typo3-ter', $extension->getKey());
 				$this->existingRepositories[$repository['name']] = $repository['ssh_url'];
+
+				$tags = $this->github->api('git')->tags()->all('typo3-ter', $extension->getKey());
 				foreach ($tags as $tag) {
 					$existingTags[] = trim($tag['ref'], 'refs/tags/');
 				}
 			} catch (\Exception $e) {
 				if (array_key_exists($extension->getKey(), $this->existingRepositories) === FALSE) {
-					$createdRepository = $this->github->api('repository')->create($extension->getKey(), '', 'http://typo3.org/extensions/repository/view/' . $extension->getKey(), TRUE, 'typo3-ter');
-					$this->existingRepositories[$extension->getKey()] = $createdRepository['ssh_url'];
+					try {
+						$createdRepository = $this->github->api('repository')->create($extension->getKey(), '', 'http://typo3.org/extensions/repository/view/' . $extension->getKey(), TRUE, 'typo3-ter');
+						$this->existingRepositories[$extension->getKey()] = $createdRepository['ssh_url'];
+					} catch (\Exception $e) {
+					}
+
 				}
 			}
 
 			$extension->setRepositoryPath($this->existingRepositories[$extension->getKey()]);
 
 			$versions = $extension->getVersions();
-			foreach ($versions as $version) {
-				if (in_array($version->getNumber(), $existingTags)) {
-					$this->output->writeln('Version ' . $version->getNumber() . ' is already tagged');
-					$extension->removeVersion($version);
+
+			$versions->rewind();
+			while ($versions->valid()) {
+				$object = $versions->current();
+				$versions->next();
+
+				if (in_array($object->getNumber(), $existingTags)) {
+					$this->output->writeln('Version ' . $object->getNumber() . ' is already tagged');
+					$extension->removeVersion($object);
+				} elseif ($object->getReviewState() == -1) {
+					$this->output->writeln('Version ' . $object->getNumber() . ' is insecure and ignored');
+
+					$extension->removeVersion($object);
 				}
 			}
 
 			if (count($extension->getVersions()) > 0) {
+				foreach ($versions as $version) {
+					$this->output->writeln('Version ' . $version->getNumber() . ' is taken into account');
+				}
 				$this->beanstalk->putInTube('extensions', gzcompress(serialize($extension), 9));
 			} else {
 				$this->output->writeln('Extension ' . $extension->getKey() . ' is ignored, all versions tagged already.');
-			 }
+			}
 		}
 	}
 
@@ -190,21 +207,21 @@ class WorkerCommand extends BaseCommand {
 			$this->output->writeln('Initializing GIT-Repository with origin: ' . $extension->getRepositoryPath());
 			exec(
 				'cd ' . escapeshellarg($extensionDir)
-					. ' && git init'
-					. ' && git remote add origin ' . $extension->getRepositoryPath()
-					. ' && git config user.name "TYPO3-TER Bot"'
-					. ' && git config user.email "typo3ter-bot@ringerge.org"'
+				. ' && git init'
+				. ' && git remote add origin ' . $extension->getRepositoryPath()
+				. ' && git config user.name "TYPO3-TER Bot"'
+				. ' && git config user.email "typo3ter-bot@ringerge.org"'
 			);
 
 			try {
 				$this->github->api('repository')->commits()->all('typo3-ter', $extension->getKey(), array());
 				$this->output->writeln('Commit found -> pulling');
 				exec('cd ' . escapeshellarg($extensionDir) . ' && git pull -q origin master');
-					// delete all files excluding the .git directory
+				// delete all files excluding the .git directory
 				exec('cd ' . escapeshellarg($extensionDir)
-					. ' mv .git ../.tmpgit'
-					. ' rm -rf * .*'
-					. ' mv ../.tmpgit .git');
+				. ' mv .git ../.tmpgit'
+				. ' rm -rf * .*'
+				. ' mv ../.tmpgit .git');
 
 			} catch (\Exception $e) {
 				$this->output->writeln('No Commit found');
@@ -213,7 +230,7 @@ class WorkerCommand extends BaseCommand {
 			$t3xPath = $extensionDir . $extension->getKey() . '.t3x';
 			$this->output->writeln('Downloading version ' . $extensionVersion->getNumber());
 
-			$downloadedExtension = @file_get_contents(	$this->configurationManager->get('Services.TER.ExtensionDownloadUrl') . $extension->getKey() . '/' . $extensionVersion->getNumber() . '/t3x/');
+			$downloadedExtension = @file_get_contents($this->configurationManager->get('Services.TER.ExtensionDownloadUrl') . $extension->getKey() . '/' . $extensionVersion->getNumber() . '/t3x/');
 			if ($downloadedExtension === FALSE) {
 				$this->output->writeln(sprintf('ERROR: Version "%s" of extension "%s" could not be downloaded!', $extensionVersion->getNumber(), $extension->getKey()));
 			} else {
@@ -231,10 +248,10 @@ class WorkerCommand extends BaseCommand {
 				$this->output->writeln('Committing, tagging and pushing version ' . $extensionVersion->getNumber());
 				exec(
 					'cd ' . escapeshellarg($extensionDir)
-						. ' && git add -A'
-						. ' && git commit -m "Import of Version ' . $extensionVersion->getNumber() . '"'
-						. ' && git tag -a -m "Version ' . $extensionVersion->getNumber() . '" ' . $extensionVersion->getNumber()
-						. ' && git push --tags origin master'
+					. ' && git add -A'
+					. ' && git commit -m "Import of Version ' . $extensionVersion->getNumber() . '"'
+					. ' && git tag -a -m "Version ' . $extensionVersion->getNumber() . '" ' . $extensionVersion->getNumber()
+					. ' && git push --tags origin master'
 				);
 
 			}
