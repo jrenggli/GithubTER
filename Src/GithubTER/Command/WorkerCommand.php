@@ -158,9 +158,7 @@ class WorkerCommand extends BaseCommand {
 					$this->output->writeln('Version ' . $object->getNumber() . ' is already tagged');
 					$extension->removeVersion($object);
 				} elseif ($object->getReviewState() == -1) {
-					$this->output->writeln('Version ' . $object->getNumber() . ' is insecure and ignored');
-
-					$extension->removeVersion($object);
+					$this->output->writeln('Version ' . $object->getNumber() . ' is new and insure');
 				}
 			}
 
