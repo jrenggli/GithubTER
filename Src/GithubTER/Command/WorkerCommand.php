@@ -215,11 +215,7 @@ class WorkerCommand extends BaseCommand {
 				$this->github->api('repository')->commits()->all('typo3-ter', $extension->getKey(), array());
 				$this->output->writeln('Commit found -> pulling');
 				exec('cd ' . escapeshellarg($extensionDir) . ' && git pull -q origin master');
-				// delete all files excluding the .git directory
-				exec('cd ' . escapeshellarg($extensionDir)
-				. ' mv .git ../.tmpgit'
-				. ' rm -rf * .*'
-				. ' mv ../.tmpgit .git');
+				$this->recursiveRemove($extensionDir);
 
 			} catch (\Exception $e) {
 				$this->output->writeln('No Commit found');
@@ -271,6 +267,23 @@ class WorkerCommand extends BaseCommand {
 		}
 		$this->output->writeln('Finished clearing the queue');
 	}
+
+	protected function recursiveRemove($dir) {
+		$structure = glob(rtrim($dir, "/") . '/*');
+		if (is_array($structure)) {
+			foreach ($structure as $file) {
+				if ($file != '.git') {
+					if (is_dir($file)) {
+						$this->recursiveRemove($file);
+					} elseif (is_file($file)) {
+						unlink($file);
+					}
+				}
+			}
+		}
+
+    @rmdir($dir);
+}
 }
 
 ?>
