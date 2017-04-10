@@ -30,7 +30,7 @@
  * @author Philipp Bergsmann <p.bergsmann@opendo.at>
  * @package GithubTER
  */
-require_once __DIR__.'/Src/Autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 
 use Symfony\Component\Console as Console;
 

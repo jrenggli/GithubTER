@@ -32,6 +32,9 @@
  */
 namespace GithubTER\Command;
 
+use Github\Client;
+use GithubTER\Domain\Model\Version;
+use Pheanstalk\Pheanstalk;
 use Symfony\Component\Console;
 use GithubTER\Service;
 use GithubTER\Domain\Model;
@@ -39,7 +42,7 @@ use GithubTER\Configuration;
 
 class WorkerCommand extends BaseCommand {
 	/**
-	 * @var \Pheanstalk
+	 * @var Pheanstalk
 	 */
 	protected $beanstalk;
 
@@ -49,7 +52,7 @@ class WorkerCommand extends BaseCommand {
 	protected $downloadService;
 
 	/**
-	 * @var \Github\Client
+	 * @var Client
 	 */
 	protected $github;
 
@@ -73,14 +76,14 @@ class WorkerCommand extends BaseCommand {
 	protected function initialize(Console\Input\InputInterface $input, Console\Output\OutputInterface $output) {
 		parent::initialize($input, $output);
 
-		$this->beanstalk = new \Pheanstalk($this->configurationManager->get('Services.Beanstalkd.Server'));
+		$this->beanstalk = new Pheanstalk($this->configurationManager->get('Services.Beanstalkd.Server'));
 		$this->downloadService = new Service\Download\Curl();
 		$this->t3xExtractor = new Service\T3xExtractor();
-		$this->github = new \Github\Client();
+		$this->github = new Client();
 		$this->github->authenticate(
 			$this->configurationManager->get('Services.Github.AuthToken'),
 			'',
-			\Github\Client::AUTH_HTTP_TOKEN
+			Client::AUTH_HTTP_TOKEN
 		);
 	}
 
@@ -193,6 +196,7 @@ class WorkerCommand extends BaseCommand {
 
 		$extensionDir = $this->configurationManager->get('TempDir') . '/Extension/' . $extension->getKey() . '/';
 
+		/** @var Version $extensionVersion */
 		foreach ($extension->getVersions() as $extensionVersion) {
 			if (is_dir($extensionDir)) {
 				$this->output->writeln('Removing directory ' . $extensionDir);
