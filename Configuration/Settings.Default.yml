@@ -3,7 +3,8 @@ TempDir: Temp
 Services:
   Github:
     AuthToken: 4ed2c0f777b22e9d14ddf4dc99b9ff2b5701e290
-    OrganizationName: typo3-ter
+    UserName: typo3-ter
+    UserNameIsOrganization: TRUE
   Beanstalkd:
     Server: ec2-79-125-88-135.eu-west-1.compute.amazonaws.com
   TER:

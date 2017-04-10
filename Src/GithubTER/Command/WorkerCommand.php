@@ -130,17 +130,17 @@ class WorkerCommand extends BaseCommand {
 
 			$existingTags = array();
 			try {
-				$repository = $this->github->api('repository')->show('typo3-ter', $extension->getKey());
+				$repository = $this->github->api('repository')->show($this->configurationManager->get('Services.Github.UserName'), $extension->getKey());
 				$this->existingRepositories[$repository['name']] = $repository['ssh_url'];
 
-				$tags = $this->github->api('git')->tags()->all('typo3-ter', $extension->getKey());
+				$tags = $this->github->api('git')->tags()->all($this->configurationManager->get('Services.Github.UserName'), $extension->getKey());
 				foreach ($tags as $tag) {
 					$existingTags[] = trim($tag['ref'], 'refs/tags/');
 				}
 			} catch (\Exception $e) {
 				if (array_key_exists($extension->getKey(), $this->existingRepositories) === FALSE) {
 					try {
-						$createdRepository = $this->github->api('repository')->create($extension->getKey(), '', 'http://typo3.org/extensions/repository/view/' . $extension->getKey(), TRUE, 'typo3-ter');
+						$createdRepository = $this->github->api('repository')->create($extension->getKey(), '', 'http://typo3.org/extensions/repository/view/' . $extension->getKey(), TRUE, ($this->configurationManager->get('Services.Github.UserNameIsOrganization')?$this->configurationManager->get('Services.Github.UserName'):NULL));
 						$this->existingRepositories[$extension->getKey()] = $createdRepository['ssh_url'];
 					} catch (\Exception $e) {
 					}
@@ -216,7 +216,7 @@ class WorkerCommand extends BaseCommand {
 			);
 
 			try {
-				$this->github->api('repository')->commits()->all('typo3-ter', $extension->getKey(), array());
+				$this->github->api('repository')->commits()->all($this->configurationManager->get('Services.Github.UserName'), $extension->getKey(), array());
 				$this->output->writeln('Commit found -> pulling');
 				exec('cd ' . escapeshellarg($extensionDir) . ' && git pull -q origin master');
 				$this->recursiveRemove($extensionDir);
