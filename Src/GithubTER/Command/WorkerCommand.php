@@ -211,8 +211,8 @@ class WorkerCommand extends BaseCommand {
 				'cd ' . escapeshellarg($extensionDir)
 				. ' && git init'
 				. ' && git remote add origin ' . $extension->getRepositoryPath()
-				. ' && git config user.name "TYPO3-TER Bot"'
-				. ' && git config user.email "typo3ter-bot@ringerge.org"'
+				. ' && git config user.name "' . $extensionVersion->getAuthor()->getName() .'"'
+				. ' && git config user.email "' . $extensionVersion->getAuthor()->getEmail() . '"'
 			);
 
 			try {
@@ -244,10 +244,16 @@ class WorkerCommand extends BaseCommand {
 				$readmeWriter->write();
 
 				$this->output->writeln('Committing, tagging and pushing version ' . $extensionVersion->getNumber());
+				$commitMessage = 'Import of Version ' . $extensionVersion->getNumber();
+
+				if ($extensionVersion->getUploadComment()) {
+				    $commitMessage .= ' - '. $extensionVersion->getUploadComment();
+				}
+
 				exec(
 					'cd ' . escapeshellarg($extensionDir)
 					. ' && git add -A'
-					. ' && git commit -m "Import of Version ' . $extensionVersion->getNumber() . '"'
+					. ' && git commit -m ' . escapeshellarg($commitMessage) . ' --date "'. $extensionVersion->getUploadDate() .'"'
 					. ' && git tag -a -m "Version ' . $extensionVersion->getNumber() . '" ' . $extensionVersion->getNumber()
 					. ' && git push --tags origin master'
 				);
